@@ -41,7 +41,9 @@ kotlin {
                 implementation("com.sdercolin.utaformatix:utaformatix-data:1.1.0")
 
                 // Kotlin
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-js:1.6.4")
+                // implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-js:1.6.4")
+                // Original import above
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
 
                 // React, React DOM + Wrappers

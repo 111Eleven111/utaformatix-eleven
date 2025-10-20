@@ -18,7 +18,14 @@ kotlin {
         useEsModules()
         dependencies {
             implementation("com.sdercolin.utaformatix:utaformatix-data:1.1.0")
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-js:1.6.4")
+            // implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-js:1.6.4")
+
+            /*
+            Suggestion (safe): change the two occurrences in the repo (I saw them in both root build.gradle.kts jsMain and build.gradle.kts) from:
+            This uses the canonical artifact and lets Gradle/Kotlin pick the correct platform artifact.
+            The import above is original one
+             */
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
             implementation(npm("jszip", "3.5.0"))
             implementation(npm("encoding-japanese", "1.0.30"))
