@@ -23,7 +23,19 @@ object Resources {
         get() = require("./format_templates/template.s5p").default as String
 
     val ppsfTemplate: String
-        get() = require("./format_templates/template.ppsf.json").default as String
+        get() {
+            val mod = require("./format_templates/template.ppsf.json")
+            // Try common forms: module.default (string), module (string), otherwise stringify
+            try {
+                return mod.unsafeCast<dynamic>().default as String
+            } catch (_: Throwable) {
+            }
+            try {
+                return mod as String
+            } catch (_: Throwable) {
+            }
+            return kotlin.js.JSON.stringify(mod)
+        }
 
     val ustxTemplate: String
         get() = require("./format_templates/template.ustx").default as String
