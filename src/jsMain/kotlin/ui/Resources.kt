@@ -39,4 +39,7 @@ object Resources {
 
     val tsslnIcon: String
         get() = core.external.require("./images/voisona.png").default as String
+
+    val ppsfIcon: String
+        get() = core.external.require("./images/svr1.png").default as String
 }

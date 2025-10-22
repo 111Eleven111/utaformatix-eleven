@@ -22,6 +22,9 @@ object Resources {
     val s5pTemplate: String
         get() = require("./format_templates/template.s5p").default as String
 
+    val ppsfTemplate: String
+        get() = require("./format_templates/template.ppsf.json").default as String
+
     val ustxTemplate: String
         get() = require("./format_templates/template.ustx").default as String
 

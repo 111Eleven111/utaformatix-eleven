@@ -25,10 +25,13 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 11)
 
 ./gradlew --refresh-dependencies build -x jsBrowserTest
 
+- auto formating with ktlint
+
+export JAVA_HOME=$(/usr/libexec/java_home -v 11) && ./gradlew :core:ktlintFormat --no-daemon --stacktrace
+
 # TODOs
 
-At this point, project builds and runs in dev server. Running dev server might be stuck at 96% in terminal but the localhost window does seem to show and work, needs futher inspection maybe.
-TODO next:
+At this point, project builds and runs in dev server. Running dev server might be stuck at 96% in terminal but the localhost window does seem to show and work, needs futher inspection maybe. Edit: seems to work fine regardles.
 
-1. Check that it converts files correctly from svp to ust in this state
+1. Check that it converts files correctly from ust to svp in this state, DONE / CHEKED 21.10.25
 2. Implement and add .ppsf(NT) export support

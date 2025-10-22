@@ -185,7 +185,7 @@ private val Format.description: String?
             MusicXml -> Strings.MusicXmlFormatDescription
             Dv -> Strings.DvFormatDescription
             Vsq -> Strings.VsqFormatDescription
-            Ppsf -> null
+            Ppsf -> Strings.PpsfFormatDescription
             StandardMid -> Strings.StandardMidDescription
             UfData -> Strings.UfDataFormatDescription
             Tssln -> Strings.VoiSonaFormatDescription
@@ -205,7 +205,7 @@ private val Format.iconPath: String?
             MusicXml -> Resources.ccsIcon
             Dv -> Resources.dvIcon
             Vsq -> Resources.vsqIcon
-            Ppsf -> null
+            Ppsf -> Resources.ppsfIcon
             StandardMid -> Resources.standardMidiIcon
             UfData -> Resources.ufdataIcon
             Tssln -> Resources.tsslnIcon

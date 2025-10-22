@@ -168,8 +168,8 @@ enum class Format(
         parser = { files, params ->
             core.io.Ppsf.parse(files.first(), params)
         },
-        generator = { _, _ ->
-            throw NotImplementedError()
+        generator = { project, features ->
+            core.io.Ppsf.generate(project, features)
         },
         possibleLyricsTypes = listOf(RomajiCv, KanaCv),
     ),
@@ -247,6 +247,7 @@ enum class Format(
                     Svp,
                     S5p,
                     Dv,
+                    Ppsf,
                     StandardMid,
                     Tssln,
                     UfData,

@@ -771,6 +771,13 @@ enum class Strings(
         ru = "Проект для VoiSona",
         fr = "Projet pour VoiSona",
     ),
+    PpsfFormatDescription(
+        en = "Project for Piapro Studio NT (.ppsf)",
+        ja = "Piapro Studio NT プロジェクト (.ppsf)",
+        zhCN = "Piapro Studio NT 工程 (.ppsf)",
+        ru = "Проект для Piapro Studio NT (.ppsf)",
+        fr = "Projet pour Piapro Studio NT (.ppsf)",
+    ),
     ExportButton(
         en = "Export",
         ja = "エクスポート",

@@ -2,6 +2,10 @@ package core.io
 
 import core.exception.UnsupportedLegacyPpsfError
 import core.external.JsZip
+import core.external.JsZipOption
+import core.external.Resources
+import core.model.ExportResult
+import core.model.FeatureConfig
 import core.model.Format
 import core.model.ImportParams
 import core.model.ImportWarning
@@ -13,8 +17,10 @@ import core.util.readBinary
 import kotlinx.coroutines.await
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import org.w3c.files.Blob
 import org.w3c.files.File
 
 object Ppsf {
@@ -89,7 +95,9 @@ object Ppsf {
 
         val tracks =
             content.ppsf.project.dvlTrack
-                .mapIndexed { i, track -> parseTrack(i, track, params.defaultLyric) }
+                .mapIndexed { i, track ->
+                    parseTrack(i, track, params.defaultLyric)
+                }
 
         return core.model.Project(
             format = format,
@@ -100,6 +108,114 @@ object Ppsf {
             tempos = tempos,
             measurePrefix = 0,
             importWarnings = warnings,
+        )
+    }
+
+    suspend fun generate(
+        project: core.model.Project,
+        features: List<FeatureConfig>,
+    ): ExportResult {
+        val templateText = Resources.ppsfTemplate
+        val ppsf = jsonSerializer.decodeFromString(Project.serializer(), templateText)
+
+        // Build new inner project by copying the template and replacing fields we need
+        val oldInner = ppsf.ppsf.project
+
+        // tempos
+        val tempoSeq =
+            project.tempos
+                .map { t ->
+                    TempoSequenceEvent(
+                        curveType = null,
+                        tick = t.tickPosition.toInt(),
+                        value = (t.bpm * BPM_RATE).toInt(),
+                    )
+                }
+        val constTempoValue = (project.tempos.firstOrNull()?.bpm ?: 120.0)
+        val newTempo =
+            Tempo(
+                const = (constTempoValue * BPM_RATE).toInt(),
+                sequence = tempoSeq,
+                useSequence = tempoSeq.isNotEmpty(),
+            )
+
+        // meters
+        val meterSeq =
+            project.timeSignatures
+                .map { m ->
+                    MeterSequenceEvent(
+                        denomi = m.denominator,
+                        nume = m.numerator,
+                        measure = m.measurePosition,
+                    )
+                }
+        val firstMs = project.timeSignatures.firstOrNull()
+        val newMeter =
+            Meter(
+                const =
+                    MeterConstValue(
+                        denomi = firstMs?.denominator ?: 4,
+                        nume = firstMs?.numerator ?: 4,
+                    ),
+                sequence = meterSeq,
+                useSequence = meterSeq.isNotEmpty(),
+            )
+
+        // tracks and events
+        val newTracks =
+            project.tracks
+                .mapIndexed { idx, t ->
+                    DvlTrack(
+                        enabled = true,
+                        events =
+                            t.notes.map { n ->
+                                Event(
+                                    length = n.length,
+                                    noteNumber = n.key,
+                                    pos = n.tickOn,
+                                    lyric = n.lyric,
+                                )
+                            },
+                        name = t.name,
+                    )
+                }
+
+        val newInner =
+            oldInner.copy(
+                dvlTrack = newTracks,
+                meter = newMeter,
+                tempo = newTempo,
+                name = project.name,
+            )
+
+        val newRoot =
+            ppsf.ppsf.copy(
+                project = newInner,
+            )
+        val newProject =
+            ppsf.copy(
+                ppsf = newRoot,
+            )
+
+        val outJson =
+            jsonSerializer.encodeToString(
+                Project.serializer(),
+                newProject,
+            )
+
+        val zip = JsZip()
+        zip.file(JSON_PATH, outJson)
+        val option =
+            JsZipOption().also {
+                it.type = "blob"
+                it.mimeType = "application/octet-stream"
+            }
+        val blob = zip.generateAsync(option).await() as Blob
+        val name = format.getFileName(project.name)
+        return ExportResult(
+            blob,
+            name,
+            listOf(),
         )
     }
 
