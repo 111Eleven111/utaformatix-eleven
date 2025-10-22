@@ -161,24 +161,52 @@ object Ppsf {
                 useSequence = meterSeq.isNotEmpty(),
             )
 
-        // tracks and events
+        // tracks and events - merge with template events to preserve required fields
         val newTracks =
-            project.tracks
-                .mapIndexed { idx, t ->
-                    DvlTrack(
-                        enabled = true,
-                        events =
-                            t.notes.map { n ->
-                                Event(
-                                    length = n.length,
-                                    noteNumber = n.key,
-                                    pos = n.tickOn,
-                                    lyric = n.lyric,
-                                )
-                            },
-                        name = t.name,
-                    )
-                }
+            project.tracks.mapIndexed { idx, t ->
+                val templateTrack = oldInner.dvlTrack.getOrNull(idx)
+                val templateEvent = templateTrack?.events?.firstOrNull()
+                val events =
+                    t.notes.map { n ->
+                        if (templateEvent != null) {
+                            Event(
+                                adjustSpeed = templateEvent.adjustSpeed,
+                                attackSpeedRate = templateEvent.attackSpeedRate,
+                                consonantRate = templateEvent.consonantRate,
+                                consonantSpeedRate = templateEvent.consonantSpeedRate,
+                                enabled = true,
+                                length = n.length,
+                                lyric = n.lyric,
+                                noteNumber = n.key,
+                                noteOffPitEnvelope = templateEvent.noteOffPitEnvelope,
+                                noteOnPitEnvelope = templateEvent.noteOnPitEnvelope,
+                                portamentoEnvelope = templateEvent.portamentoEnvelope,
+                                portamentoType = templateEvent.portamentoType,
+                                pos = n.tickOn,
+                                isProtected = templateEvent.isProtected,
+                                releaseSpeedRate = templateEvent.releaseSpeedRate,
+                                symbols = templateEvent.symbols,
+                                vclLikeNoteOff = templateEvent.vclLikeNoteOff,
+                            )
+                        } else {
+                            Event(
+                                length = n.length,
+                                lyric = n.lyric,
+                                noteNumber = n.key,
+                                pos = n.tickOn,
+                            )
+                        }
+                    }
+                DvlTrack(
+                    enabled = templateTrack?.enabled ?: true,
+                    events = events,
+                    mixer = templateTrack?.mixer,
+                    name = t.name,
+                    parameters = templateTrack?.parameters,
+                    pluginOutputBusIndex = templateTrack?.pluginOutputBusIndex,
+                    singer = templateTrack?.singer,
+                )
+            }
 
         val newInner =
             oldInner.copy(
@@ -202,6 +230,12 @@ object Ppsf {
                 Project.serializer(),
                 newProject,
             )
+
+        // DEBUG: print a truncated preview of the generated PPSF JSON in the browser console
+        try {
+            println("[Ppsf.generate] ppsf.json preview: ${'$'}{outJson.take(2000)}")
+        } catch (_: Throwable) {
+        }
 
         val zip = JsZip()
         zip.file(JSON_PATH, outJson)
