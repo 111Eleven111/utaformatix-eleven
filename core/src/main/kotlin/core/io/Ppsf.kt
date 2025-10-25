@@ -19,6 +19,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -26,6 +27,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.w3c.files.Blob
 import org.w3c.files.File
 import kotlin.math.max
@@ -228,6 +230,10 @@ object Ppsf {
                                                 put("lyric", JsonPrimitive(note.lyric))
                                                 put("note_number", JsonPrimitive(note.key))
                                                 put("pos", JsonPrimitive(note.tickOn))
+                                                // Set symbols based on lyric: "-" for continuation, else preserve or use default
+                                                if (note.lyric == "-") {
+                                                    put("symbols", JsonPrimitive("-"))
+                                                }
                                             }
                                         }
                                     add(merged)
@@ -244,6 +250,10 @@ object Ppsf {
                                             put("lyric", JsonPrimitive(note.lyric))
                                             put("note_number", JsonPrimitive(note.key))
                                             put("pos", JsonPrimitive(note.tickOn))
+                                            // Set symbols based on lyric: "-" for continuation, else preserve or use default
+                                            if (note.lyric == "-") {
+                                                put("symbols", JsonPrimitive("-"))
+                                            }
                                         }
                                     add(merged)
                                 }
@@ -326,6 +336,115 @@ object Ppsf {
 
         ppsfMap["project"] = JsonObject(projectMap)
         rootMap["ppsf"] = JsonObject(ppsfMap)
+
+        // Also update GUI notes in gui_settings to match the number of events so the editor shows all notes
+        try {
+            val guiSettingsJe =
+                templateJson
+                    .jsonObject["ppsf"]
+                    ?.jsonObject
+                    ?.get("gui_settings")
+                    ?.jsonObject
+
+            val eventTracksArray =
+                guiSettingsJe
+                    ?.get("track-editor")
+                    ?.jsonObject
+                    ?.get("event-tracks")
+                    ?.jsonArray
+
+            val firstGuiTrackJe = eventTracksArray?.getOrNull(0)?.jsonObject
+            val templateGuiNote =
+                firstGuiTrackJe
+                    ?.get("notes")
+                    ?.jsonArray
+                    ?.getOrNull(0)
+                    ?.jsonObject
+
+            if (firstGuiTrackJe != null && templateGuiNote != null) {
+                // read generated events for first track (safe access)
+                val generatedEvents =
+                    ppsfMap["project"]
+                        ?.jsonObject
+                        ?.get("dvl_track")
+                        ?.jsonArray
+                        ?.getOrNull(0)
+                        ?.jsonObject
+                        ?.get("events")
+                        ?.jsonArray
+                        ?: buildJsonArray {}
+
+                val newGuiNotes =
+                    buildJsonArray {
+                        generatedEvents.forEachIndexed { evIndex, evJe ->
+                            val evObj = evJe.jsonObject
+                            val syllableLyric = evObj["lyric"]?.jsonPrimitive?.content ?: ""
+                            val symbolsText =
+                                evObj["symbols"]?.jsonPrimitive?.content
+                                    ?: if (syllableLyric == "-") {
+                                        "-"
+                                    } else {
+                                        templateGuiNote["syllables"]
+                                            ?.jsonArray
+                                            ?.getOrNull(0)
+                                            ?.jsonObject
+                                            ?.get("symbols-text")
+                                            ?.jsonPrimitive
+                                            ?.content
+                                            ?: ""
+                                    }
+
+                            val guiNote =
+                                buildJsonObject {
+                                    // copy template GUI note defaults
+                                    templateGuiNote.entries.forEach { (k, v) -> put(k, v) }
+                                    // override index/length/portamento and syllables
+                                    put("event_index", JsonPrimitive(evIndex))
+                                    put("length", evObj["length"] ?: JsonPrimitive(0))
+                                    // portamento values taken from event's portamento_envelope if present
+                                    val portEnv = evObj["portamento_envelope"]?.jsonObject
+                                    if (portEnv != null) {
+                                        put("portamento_length", portEnv["length"] ?: JsonPrimitive(0))
+                                        put("portamento_offset", portEnv["offset"] ?: JsonPrimitive(0))
+                                    }
+                                    put(
+                                        "syllables",
+                                        buildJsonArray {
+                                            add(
+                                                buildJsonObject {
+                                                    put("footer-text", JsonPrimitive(""))
+                                                    put("header-text", JsonPrimitive(""))
+                                                    put("is-list-end", JsonPrimitive(true))
+                                                    put("is-list-top", JsonPrimitive(true))
+                                                    put("is-word-end", JsonPrimitive(true))
+                                                    put("is-word-top", JsonPrimitive(true))
+                                                    put("lyric-text", JsonPrimitive(syllableLyric))
+                                                    put("symbols-text", JsonPrimitive(symbolsText))
+                                                },
+                                            )
+                                        },
+                                    )
+                                }
+                            add(guiNote)
+                        }
+                    }
+
+                // set the notes array into the gui settings inside rootMap
+                val rootGuiMap = rootMap["ppsf"]!!.jsonObject.toMutableMap()
+                val rootTrackEditorMap = rootGuiMap["gui_settings"]!!.jsonObject.toMutableMap()
+                val rootEventTracks = rootTrackEditorMap["track-editor"]!!.jsonObject.toMutableMap()
+                val etArray = rootEventTracks["event-tracks"]!!.jsonArray.toMutableList()
+                val firstTrackMap = etArray.getOrNull(0)?.jsonObject?.toMutableMap() ?: mutableMapOf()
+                firstTrackMap["notes"] = newGuiNotes
+                etArray[0] = JsonObject(firstTrackMap)
+                rootEventTracks["event-tracks"] = JsonArray(etArray)
+                rootTrackEditorMap["track-editor"] = JsonObject(rootEventTracks)
+                rootGuiMap["gui_settings"] = JsonObject(rootTrackEditorMap)
+                rootMap["ppsf"] = JsonObject(rootGuiMap)
+            }
+        } catch (_: Throwable) {
+            // If anything goes wrong, keep the template gui_settings as-is
+        }
 
         val finalJson = JsonObject(rootMap)
         val outJson = jsonSerializer.encodeToString(JsonElement.serializer(), finalJson)
